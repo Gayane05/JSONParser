@@ -1,0 +1,11 @@
+{
+   "key1": 203.56,
+"arr": [[ [5,9], [7]], [7,34], [3]],
+   "key-o": {
+    "inner key": "inner value"
+  },
+  "key2": false,
+  "key3": null,
+  "key4": "value",
+  "key5": -101
+}
