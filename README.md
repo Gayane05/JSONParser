@@ -1,2 +1,2 @@
 # JSONParser
-JSONParser - Taken from Coding Challenges "Build Your Own JSON Parser"
+JSONParser - Taken from Coding Challenges "Build Your Own JSON Parser" under Windows
