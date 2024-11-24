@@ -182,7 +182,7 @@ std::string checkAndGetStringValue(std::string& content, size_t& i, bool& isClos
             }
             else
             {
-               throw InvalidJSONFileFormat("File is invalid", __LINE__);
+               throw InvalidJSONFileFormat("Invalid string format", __LINE__);
             }
          }
          else
@@ -195,7 +195,7 @@ std::string checkAndGetStringValue(std::string& content, size_t& i, bool& isClos
 
       if (content[i] == ',' && !isClosed)
       {
-         throw InvalidJSONFileFormat("File is invalid", __LINE__);
+         throw InvalidJSONFileFormat("Invalid string format", __LINE__);
       }
       else
       {
@@ -207,7 +207,8 @@ std::string checkAndGetStringValue(std::string& content, size_t& i, bool& isClos
 
 }
 
-void readContentFromFile(/*const std::filesystem::path& path,*/ std::string fileName, std::string& content)
+// Parse content from JSON file to string.
+void ReadContentFromFile(/*const std::filesystem::path& path,*/const std::string& fileName, std::string& content)
 {
 
    //if (!std::filesystem::exists(path))
@@ -215,98 +216,98 @@ void readContentFromFile(/*const std::filesystem::path& path,*/ std::string file
    //   throw std::runtime_error("File does not exist: " + path.string());
    //}
 
-   std::fstream file(fileName, std::fstream::in);
-   if (!file)
-   {
-      std::cerr << "Cannot open file.\n";
-      return;
+   std::ifstream file(fileName);
+   if (!file.is_open()) {
+      throw InvalidJSONFileFormat("Cannot open file", __LINE__);
    }
 
-   while (file)
-   {
-      std::string temp;
-      file >> temp;
-      content += temp;
-
-      if (file.eof())
-      {
-         break;
-      }
-   }
-   file.close();
-
-
-   if (content.size() == 0)
-   {
+   content.assign((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+   if (content.empty() || content.front() != '{' || content.back() != '}') {
       throw InvalidJSONFileFormat("File is invalid", __LINE__);
    }
-   else
+   file.close();
+}
+
+// Parse JSON file to string.
+//void readContentFromFile(/*const std::filesystem::path& path,*/ std::string fileName, std::string& content)
+//{
+//
+//   //if (!std::filesystem::exists(path))
+//   //{
+//   //   throw std::runtime_error("File does not exist: " + path.string());
+//   //}
+//
+//   std::fstream file(fileName, std::fstream::in);
+//   if (!file)
+//   {
+//      std::cerr << "Cannot open file.\n";
+//      return;
+//   }
+//
+//   while (file)
+//   {
+//      std::string temp;
+//      file >> temp;
+//      content += temp;
+//
+//      if (file.eof())
+//      {
+//         break;
+//      }
+//   }
+//   file.close();
+//
+//
+//   if (content.size() == 0)
+//   {
+//      throw InvalidJSONFileFormat("File is invalid", __LINE__);
+//   }
+//   else
+//   {
+//      if (content[0] != '{')
+//      {
+//         throw InvalidJSONFileFormat("File is invalid", __LINE__);
+//      }
+//      else if (content[content.size() - 1] != '}')
+//      {
+//         throw InvalidJSONFileFormat("File is invalid", __LINE__);
+//      }
+//      else
+//      {
+//         std::cout << "File is valid \n";
+//      }
+//   }
+//}
+
+
+bool parseNumber(const std::string& value, primitiveValue_type& parsedValue)
+{
+   try
    {
-      if (content[0] != '{')
+      size_t firstDotPos;
+
+      if (firstDotPos = value.find('.'); firstDotPos == std::string::npos)
       {
-         throw InvalidJSONFileFormat("File is invalid", __LINE__);
-      }
-      else if (content[content.size() - 1] != '}')
-      {
-         throw InvalidJSONFileFormat("File is invalid", __LINE__);
+         parsedValue = stoi(value);
       }
       else
       {
-         std::cout << "File is valid \n";
-      }
-   }
-
-   // Remove spaces and new lines.
-   //std::remove_if(content.begin(), content.end(), [](char el) { return el == ' '; });
-}
-
-bool parseNumber(std::string& value, primitiveValue_type& parsedValue)
-{
-   int dotCount = 0;
-   int minusCount = 0;
-
-   for (size_t i = 0; i < value.size(); ++i)
-   {
-      if (!isdigit(value[i]))
-      {
-         if (value[i] == '.') // Probably it's float or double.
+         if (value.find('.', firstDotPos) == std::string::npos)
          {
-            dotCount++;
-         }
-         else if (value[i] == '-' && i == 0)
-         {
-            minusCount++;
+            parsedValue = stod(value);
          }
          else
          {
-            // For a number can't be a non-digit character except '.'.
             return false;
          }
       }
-   }
-
-   try
-   {
-      if (dotCount == 0)
-      {
-         // No '.'. It's integer.
-         parsedValue = stoi(value);
-         return true;
-      }
-      if (dotCount == 1)
-      {
-         parsedValue = stod(value);
-         return true;
-      }
-      else
-      {
-         return false;
-      }
+      return true;
    }
    catch (...)
    {
       return false;
    }
+ 
 }
 
 
@@ -460,6 +461,45 @@ bool ParseArrayValue(std::string& content, bool& notLastELement, std::vector<pri
          throw InvalidJSONFileFormat("File is invalid", __LINE__);
       }
    }
+}
+
+// Parse the array value
+bool parseArrayValue(const std::string& content, size_t& index, std::vector<primitiveValue_type>& arr)
+{
+   bool isClosed = false;
+
+   while (index < content.size()) {
+      if (content[index] == '\"') {
+         size_t start = ++index;
+         while (index < content.size() && content[index] != '\"') ++index;
+         arr.push_back(std::string(content.substr(start, index - start)));
+         ++index;
+         return true;
+      }
+
+      if (content[index] == '[') {
+         ++index;  // Start of a nested array
+         std::vector<primitiveValue_type> internalVec;
+         parseArrayValue(content, index, internalVec);  // Recursive call to handle nested array
+     //    arr.push_back(internalVec);  // Add the nested array as an element
+         continue;
+      }
+
+      if (content[index] == ']' || content[index] == ',') break;  // End of the current array
+
+      size_t start = index;
+      while (index < content.size() && content[index] != ',' && content[index] != ']' && content[index] != '}') ++index;
+      std::string value = content.substr(start, index - start);
+      primitiveValue_type parsedValue;
+      if (parseNumber(value, parsedValue) || parseBoolean(value, parsedValue) || parseNull(value, parsedValue)) {
+         arr.push_back(parsedValue);
+      }
+      else {
+         std::cout << "File is invalid.\n";
+         return false;
+      }
+   }
+   return true;
 }
 
 
@@ -661,13 +701,19 @@ int ParseTheContent(std::string& content, T& elements)
 
 
 
+
+
 int main()
 {
    std::string content;
 
-   try 
+   std::cout << "Enter parsing file name: ";
+   std::string fileName;
+   std::cin >> fileName;
+
+   try
    {
-      readContentFromFile("invalid.json", content);
+      ReadContentFromFile(fileName, content);
 
       ParseTheContent(content, jsonGlobalElements);
 
@@ -687,3 +733,4 @@ int main()
 
    return 0;
 }
+
